@@ -1,0 +1,25 @@
+name: ClawOS API Checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Check API syntax
+        run: |
+          node --check api/workspace.js
+          node --check api/db-health.js
+      - name: Cloud API checks
+        run: npm run test:cloud
+      - name: Legacy prototype tests
+        run: node --test tests/*.test.mjs
