@@ -1,32 +1,40 @@
-# Neon connectivity smoke test on Vercel
+# Neon connection diagnostics (v2)
 
-Vercel was linked to Neon and the operator confirmed `DATABASE_URL` exists.
-This does **not** establish successful query execution or a complete ClawOS backend.
+This endpoint is intentionally protected. A browser visit without a custom header will correctly return HTTP 401.
 
-## Setup
+## Workflow
 
-1. Keep `DATABASE_URL` server-side and Sensitive.
-2. Add a new **server-side**, Sensitive env var named `CLAWOS_HEALTH_TOKEN`.
-   Generate a long random string using a password manager. Never paste it into chat.
-3. Ensure Neon variables and `CLAWOS_HEALTH_TOKEN` are enabled for the intended environment (Preview and/or Production).
-4. Redeploy Vercel to make env changes available.
+1. Configure `CLAWOS_HEALTH_TOKEN` in **Vercel Project > Settings > Environment Variables** for the target deployment.
+2. Make sure `DATABASE_URL` is linked to the same Vercel project and environment.
+3. Redeploy the latest commit to **Production**, then wait until Ready.
+4. Locally, use PowerShell (do not paste any secret into chat):
 
-## Verification
-
-From your own terminal (do not share the token):
-
-```bash
-curl -H "x-clawos-health-token: YOUR_PRIVATE_TOKEN" https://YOUR_DEPLOYMENT.vercel.app/api/db-health
+```powershell
+$secure = Read-Host 'CLAWOS_HEALTH_TOKEN' -AsSecureString
+$token = [System.Net.NetworkCredential]::new('', $secure).Password
+try {
+  Invoke-RestMethod -Uri 'https://snowrealmclawos.vercel.app/api/db-health' -Headers @{ 'x-clawos-health-token' = $token }
+} catch {
+  $_.ErrorDetails.Message
+} finally {
+  Remove-Variable token, secure -ErrorAction SilentlyContinue
+}
 ```
 
-Expected success: HTTP 200 `{"ok":true,"database":"connected"}`.
-Failure responses are intentionally generic. HTTP 401 means token is missing/incorrect; HTTP 503 means the database is not configured or is unreachable.
+5. Copy **only the returned requestId**. Open **Vercel > Project > Logs** (Runtime Logs), filter the request path `/api/db-health`, and find a log with matching `requestId`.
 
-## Scope / limits
+## Log interpretation
 
-- This endpoint runs a single read-only `SELECT 1`; it does **not** migrate data or create tables.
-- It does **not** expose Neon credentials or query user tables.
-- Existing browser UI still uses local storage only.
-- Do not run old Supabase-specific SQL on Neon.
-- The Neon migration `infra/neon/001_foundation.sql` is a draft and must be inspected and applied to an isolated dev DB before connecting a production API.
-- Authentication and per-tenant authorization have not yet been implemented.
+- `authorization_denied`, `configuredPresent:false` => Production function cannot read the server token. Check env name and redeploy.
+- `authorization_denied`, `configuredPresent:true,headerPresent:false` => no custom header arrived. Recheck PowerShell request.
+- `authorization_denied`, `configuredPresent:true,headerPresent:true` => values differ. Check whether Production and the test client use the same new secret.
+- `database_not_configured` => the database URL is not available to this deployment.
+- `database_unreachable` => connection or PostgreSQL error. Only non-sensitive PostgreSQL error code is logged.
+- `database_connected` => Vercel was able to execute SELECT 1 on Neon.
+
+The endpoint does not expose or log secrets. Do not share screenshots of secret values or the database connection URL.
+
+### Check the deployed revision
+
+The response must include `requestId` and header `X-ClawOS-Diagnostic-Version: db-health-diagnostics-v2`.
+If these are absent, the live URL is serving an older deployment; redeploy the new commit rather than changing tokens again.
