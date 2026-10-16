@@ -1,17 +1,13 @@
 {
   "name": "snowrealm-clawos",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node services/api/server.mjs",
-    "test": "NODE_ENV=test node --test tests/*.test.mjs",
-    "worker": "node services/api/worker.mjs"
+    "build": "node scripts/build-static.mjs",
+    "test": "node --test tests/*.test.mjs"
   },
   "engines": {
     "node": ">=20"
-  },
-  "dependencies": {
-    "pg": "^8.13.0"
   }
 }
