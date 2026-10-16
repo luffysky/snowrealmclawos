@@ -1,17 +1,19 @@
 {
   "name": "snowrealm-clawos",
-  "version": "0.19.1",
+  "version": "0.20.0",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "node scripts/build-static.mjs",
     "db:migrate": "node scripts/migrate-neon.mjs",
-    "db:verify": "node scripts/verify-neon.mjs"
+    "db:verify": "node scripts/verify-neon.mjs",
+    "test:cloud": "node --test tests/cloud-api.test.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "pg": "^8.13.0"
+    "pg": "^8.13.0",
+    "jose": "^6.1.0"
   }
 }
