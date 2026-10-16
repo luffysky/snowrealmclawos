@@ -2,6 +2,7 @@
 // Usage: CLAWOS_ALLOW_DB_MIGRATION=yes DATABASE_URL=... node scripts/migrate-neon.mjs
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import pg from 'pg';
 
@@ -27,7 +28,7 @@ try {
   await client.query('select pg_advisory_lock(8730119)');
   await client.query('create table if not exists public.clawos_schema_migrations (filename text primary key, sha256 text not null, applied_at timestamptz not null default now())');
   for (const file of files) {
-    const sql = await readFile(join(folder.pathname, file), 'utf8');
+    const sql = await readFile(join(fileURLToPath(folder), file), 'utf8');
     const hash = createHash('sha256').update(sql).digest('hex');
     const existing = await client.query('select sha256 from public.clawos_schema_migrations where filename=$1',[file]);
     if (existing.rows.length) {
