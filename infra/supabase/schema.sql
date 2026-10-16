@@ -1,0 +1,8 @@
+-- Production schema draft. Requires Supabase Auth integration and RLS tests before deployment.
+create table if not exists public.workspaces (id uuid primary key default gen_random_uuid(), owner_id uuid not null references auth.users(id), name text not null);
+create table if not exists public.tasks (id uuid primary key default gen_random_uuid(), workspace_id uuid not null references public.workspaces(id), title text not null, status text not null check(status in ('queued','running','waiting_approval','completed','failed','cancelled')), created_at timestamptz not null default now());
+create table if not exists public.extensions (id uuid primary key default gen_random_uuid(), workspace_id uuid not null references public.workspaces(id), manifest jsonb not null, enabled boolean not null default false);
+alter table public.workspaces enable row level security;alter table public.tasks enable row level security;alter table public.extensions enable row level security;
+create policy workspace_owner on public.workspaces for all to authenticated using (owner_id=(select auth.uid())) with check (owner_id=(select auth.uid()));
+create policy task_owner on public.tasks for all to authenticated using (exists(select 1 from public.workspaces w where w.id=workspace_id and w.owner_id=(select auth.uid()))) with check (exists(select 1 from public.workspaces w where w.id=workspace_id and w.owner_id=(select auth.uid())));
+create policy extension_owner on public.extensions for all to authenticated using (exists(select 1 from public.workspaces w where w.id=workspace_id and w.owner_id=(select auth.uid()))) with check (exists(select 1 from public.workspaces w where w.id=workspace_id and w.owner_id=(select auth.uid())));
